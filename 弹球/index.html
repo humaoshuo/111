@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>弹球小游戏</title>
+    <style>
+        #game-board {
+            width: 800px;
+            height: 600px;
+            border: 1px solid black;
+            position: relative;
+            display: inline-block;
+        }
+
+        #ball {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+        }
+
+        #paddle {
+            width: 100px;
+            height: 10px;
+            background-color: blue;
+            position: absolute;
+            bottom: 50px;
+            left: calc(50% - 50px);
+        }
+
+        .brick {
+            width: 70px;
+            height: 20px;
+            background-color: green;
+            position: absolute;
+        }
+
+        #score {
+            display: inline-block;
+            vertical-align: top;
+            margin-left: 20px;
+            font-size: 24px;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: red;
+            display: none;
+        }
+
+        #history-score {
+            display: inline-block;
+	    vertical-align: top;
+            margin-left: 20px;
+            font-size: 24px;
+        }
+
+        #restart-button {
+            display: inline-block;
+	    vertical-align: top;
+            margin-left: 20px;
+            margin-top: 10px;
+            font-size: 24px;
+        }
+
+        #start-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-board">
+        <div id="ball"></div>
+        <div id="paddle"></div>
+        <button id="start-button">开始游戏</button>
+        <div id="game-over">Game Over</div>
+    </div>
+    <div id="score">击落砖块数量: 0</div>
+    <div id="history-score">历史最高得分: 0</div>
+    <button id="restart-button">重新开始</button>
+    <script>
+        const gameBoard = document.getElementById('game-board');
+        const ball = document.getElementById('ball');
+        const paddle = document.getElementById('paddle');
+        const gameOver = document.getElementById('game-over');
+        const scoreElement = document.getElementById('score');
+        const historyScoreElement = document.getElementById('history-score');
+        const restartButton = document.getElementById('restart-button');
+        const startButton = document.getElementById('start-button');
+
+        let ballX = gameBoard.offsetWidth / 2;
+        let ballY = gameBoard.offsetHeight / 2;
+        let ballSpeedX = 2;
+        let ballSpeedY = 2;
+
+        let paddleX = gameBoard.offsetWidth / 2 - paddle.offsetWidth / 2;
+        const paddleSpeed = 10;
+
+        let score = 0;
+        let historyScore = localStorage.getItem('historyScore') ? parseInt(localStorage.getItem('historyScore')) : 0;
+        historyScoreElement.textContent = `历史最高得分: ${historyScore}`;
+
+        const bricks = [];
+        const brickRows = 5;
+        const brickCols = 9;
+        const brickPadding = 17;
+        const brickOffsetTop = 30;
+        const brickOffsetLeft = 30;
+
+        function createBricks() {
+            for (let c = 0; c < brickCols; c++) {
+                for (let r = 0; r < brickRows; r++) {
+                    const brick = document.createElement('div');
+                    brick.classList.add('brick');
+                    brick.style.left = (c * (70 + brickPadding) + brickOffsetLeft) + 'px';
+                    brick.style.top = (r * (20 + brickPadding) + brickOffsetTop) + 'px';
+                    gameBoard.appendChild(brick);
+                    bricks.push({
+                        element: brick,
+                        x: c * (70 + brickPadding) + brickOffsetLeft,
+                        y: r * (20 + brickPadding) + brickOffsetTop,
+                        width: 70,
+                        height: 20,
+                        visible: true
+                    });
+                }
+            }
+        }
+
+        function initGame() {
+            ballX = gameBoard.offsetWidth / 2;
+            ballY = gameBoard.offsetHeight / 2;
+            ballSpeedX = 2;
+            ballSpeedY = 2;
+            paddleX = gameBoard.offsetWidth / 2 - paddle.offsetWidth / 2;
+            paddle.style.left = paddleX + 'px';
+            score = 0;
+            scoreElement.textContent = `击落砖块数量: ${score}`;
+            gameOver.style.display = 'none';
+
+            bricks.forEach(brick => {
+                brick.element.remove();
+            });
+            bricks.length = 0;
+
+            createBricks();
+        }
+
+        function moveBall() {
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            if (ballX <= 0 || ballX >= gameBoard.offsetWidth - ball.offsetWidth) {
+                ballSpeedX = -ballSpeedX;
+            }
+            if (ballY <= 0) {
+                ballSpeedY = -ballSpeedY;
+            }
+
+            // 检查球是否碰到反弹板
+            if (
+                ballY + ball.offsetHeight >= paddle.offsetTop &&
+                ballX + ball.offsetWidth >= paddleX &&
+                ballX <= paddleX + paddle.offsetWidth
+            ) {
+                ballSpeedY = -ballSpeedY;
+            }
+
+            // 检查球是否碰到砖块
+            for (let i = 0; i < bricks.length; i++) {
+                const brick = bricks[i];
+                if (brick.visible) {
+                    if (
+                        ballX < brick.x + brick.width &&
+                        ballX + ball.offsetWidth > brick.x &&
+                        ballY < brick.y + brick.height &&
+                        ballY + ball.offsetHeight > brick.y
+                    ) {
+                        ballSpeedY = -ballSpeedY;
+                        brick.visible = false;
+                        brick.element.style.display = 'none';
+                        score++;
+                        scoreElement.textContent = `击落砖块数量: ${score}`;
+                    }
+                }
+            }
+
+            // 检查是否所有砖块都被打完
+            let allBricksDestroyed = true;
+            for (let i = 0; i < bricks.length; i++) {
+                if (bricks[i].visible) {
+                    allBricksDestroyed = false;
+                    break;
+                }
+            }
+            if (allBricksDestroyed) {
+                // 清空现有砖块
+                bricks.length = 0;
+                const existingBricks = document.querySelectorAll('.brick');
+                existingBricks.forEach(brick => brick.remove());
+                // 重新创建砖块
+                createBricks();
+            }
+
+            // 检查球是否出界
+            if (ballY >= gameBoard.offsetHeight) {
+                gameOver.style.display = 'block';
+                if (score > historyScore) {
+                    historyScore = score;
+                    localStorage.setItem('historyScore', historyScore);
+                    historyScoreElement.textContent = `历史最高得分: ${historyScore}`;
+                }
+                return;
+            }
+
+            ball.style.left = ballX + 'px';
+            ball.style.top = ballY + 'px';
+
+            requestAnimationFrame(moveBall);
+        }
+
+        function movePaddle(event) {
+            if (event.key === 'a' && paddleX > 0) {
+                paddleX -= paddleSpeed;
+            } else if (event.key === 'd' && paddleX < gameBoard.offsetWidth - paddle.offsetWidth) {
+                paddleX += paddleSpeed;
+            }
+            paddle.style.left = paddleX + 'px';
+        }
+
+        startButton.addEventListener('click', () => {
+            startButton.style.display = 'none';
+            initGame();
+            moveBall();
+        });
+
+        restartButton.addEventListener('click', () => {
+            initGame();
+            moveBall();
+        });
+
+        document.addEventListener('keydown', movePaddle);
+    </script>
+</body>
+
+</html>    
